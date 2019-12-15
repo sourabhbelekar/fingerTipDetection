@@ -8,6 +8,8 @@ using namespace cv;
 
 const Scalar WHITE = Scalar(255,255,255);
 const Scalar BLACK = Scalar(0,0,0);
+const Scalar RED = CV_RGB(255,0,0);
+const Scalar BLUE = CV_RGB(0,0,255);
 
 int isSkinPixel(Vec3d);
 vector<vector<Point>> removeNoiseContours(vector<vector<Point>>,int);
@@ -89,61 +91,49 @@ while(1){
 
     for(int i=0;i<roi.size();i++){
 
-        Mat temp,tempCopy,temp1;
+        Mat masked_roi,drawing_layer;
         RotatedRect finger;
-
-        temp = imgSegmentedSmooth(roi[i]);
-
         char filename[20];
+        int maxCont=0;
+        vector<vector<Point>> finalContours;
+
+
+        drawing_layer= originalFrame(roi[i]);
+
+
+        finalContours.clear();
+
+        masked_roi = imgSegmentedSmooth(roi[i]);
 
         sprintf(filename,"output/aoi_%d.jpg",i);
-        imwrite(filename,temp);
+        imwrite(filename,masked_roi);
 
-        temp1= originalFrame(roi[i]);
-        int maxCont=0,maxContLine;
-        vector<vector<Point> > tempContours,tempContours1;
+        for(int i=masked_roi.rows-1;i>=0;i=i-2){
 
-        tempContours1.clear();
-        tempCopy = temp.clone();
-
-        for(int i=temp.rows-1;i>=0;i=i-2){
-
-            line(tempCopy,Point(0,i),Point(temp.cols,i),BLACK,1);
-            line(tempCopy,Point(0,i-1),Point(temp.cols,i-1),BLACK,1);
-            findContours(tempCopy , tempContours, RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-            tempContours1 = removeNoiseContours(tempContours,noiseContourArea);
-            if(tempContours1.size()>maxCont){
-                maxContLine=i;
-                maxCont = tempContours1.size();
-                contours.clear();
-                contours = tempContours1;
+            line(masked_roi,Point(0,i),Point(masked_roi.cols,i),BLACK,1);
+            line(masked_roi,Point(0,i-1),Point(masked_roi.cols,i-1),BLACK,1);
+            findContours(masked_roi , contours, RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+            contours = removeNoiseContours(contours,noiseContourArea);
+            if(contours.size()>maxCont){
+                //maxContLine=i;
+                maxCont = finalContours.size();
+                finalContours.clear();
+                finalContours = contours;
             }
         }
-/*
-        rectangle(temp,Point(0,maxContLine-5),Point(temp.cols,temp.rows),BLACK,-1);
 
-        char filename_temp[20];
 
-        sprintf(filename_temp,"output/fingers_%d.jpg",i);
-        imwrite(filename_temp,temp);
-
-        findContours(temp.clone() , tempContours, RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-        tempContours1 = removeNoiseContours(tempContours,noiseContourArea);
-*/
-        tempContours1.clear();
-        tempContours1=contours;
-        for(int i=0;i<tempContours1.size();i++)
+        for(int i=0;i<finalContours.size();i++)
         {
-        //    drawContours(temp1,tempContours1,i,WHITE,2);
-            finger= minAreaRect(tempContours1[i]);
+
+            finger= minAreaRect(finalContours[i]);
             Point2f rect_points[4];
             finger.points( rect_points );
 
             for( int j = 0; j < 4; j++ )
-               line( temp1, rect_points[j], rect_points[(j+1)%4], CV_RGB(255,0,0), 2, 8 );
+               line( drawing_layer, rect_points[j], rect_points[(j+1)%4], RED, 1, 8 );
 
             //sprintf(filename_temp,"output/fingers_marked_%d.jpg",i);
-
             //imwrite(filename_temp,originalFrame);
 
             if(finger.size.height>finger.size.width){
@@ -157,11 +147,8 @@ while(1){
 
             finger.points( rect_points );
                    for( int j = 0; j < 4; j++ )
-                      line( temp1, rect_points[j], rect_points[(j+1)%4], CV_RGB(0,0,255), 2, 8 );
+                      line( drawing_layer, rect_points[j], rect_points[(j+1)%4], BLUE, 2, 8 );
 
-            //cout<<"1 X:"<<rect_points[1].x<<" Y:"<< rect_points[1].y<<endl;
-            //cout<<"2 X:"<<rect_points[2].x<<" Y:"<< rect_points[2].y<<endl;
-            //cout<<"3 X:"<<rect_points[3].x<<" Y:"<< rect_points[3].y<<endl;
 
 
         }
@@ -172,7 +159,7 @@ while(1){
     imwrite("output/final_op.jpg",originalFrame);
 
     imshow("Camera Stream",originalFrame);
-    imshow("Segmented",imgSegmentedSmooth);
+
 
     if(mode==PICTURE_MODE)
         break;
